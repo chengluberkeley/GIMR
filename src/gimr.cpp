@@ -548,7 +548,7 @@ int GIMR::find_status_change_interval_dp_(int i_kl, int i_k, int i_kr, int& i_k1
 		if (p1 != nullptr)
 			dp_tms.m_root = dp_ops.concatenate(p1, dp_tms.m_root, x);
 
-		dp_tms.print_height();
+		//dp_tms.print_height();
 
 		// Find hat{i_{k1}}
 		double f1_tilde_i_k1 = dp_ops.pcost_after(dp_tms.m_external_nodes[tilde_i_k1 - 1]) - ta_i_kl_1 + sa_i_k + d_i1i[i_kl - 1];
@@ -579,7 +579,7 @@ int GIMR::find_status_change_interval_dp_(int i_kl, int i_k, int i_kr, int& i_k1
 		if (p1 != nullptr)
 			dp_smt.m_root = dp_ops.concatenate(p1, dp_smt.m_root, x);
 
-		dp_smt.print_height();
+		//dp_smt.print_height();
 
 		// Find hat{i_{k2}}
 		double f2_tilde_i_k2 = dp_ops.pcost_after(dp_smt.m_external_nodes[tilde_i_k2]) - sa_i_k + ta_i_kr + d_ii1[i_kr];
