@@ -13,18 +13,12 @@
 #include <iostream>
 #include <utility>
 
-using namespace std;
-
 // Comparison function for the breakpoints
 bool breakpoint_comparison(const ValueIndex value_index1, const ValueIndex value_index2) {
 	return value_index1.value < value_index2.value;
 }
 
-// Public constructors
-GIMR::GIMR() {
-	n = 0;
-}
-
+// Public constructor
 GIMR::GIMR(int n, vector<vector<double>> w, vector<vector<double>> a,
 	vector<double> d_ii1, vector<double> d_i1i, bool is_integer): 
 	n(n), w(w), a(a), d_ii1(d_ii1), d_i1i(d_i1i), is_integer(is_integer) {
@@ -74,6 +68,10 @@ GIMR::GIMR(int n, vector<vector<double>> w, vector<vector<double>> a,
 			b.push_back(b_seq);
 		}
 	}
+}
+
+GIMR::~GIMR() {
+    clear_dps_();
 }
 
 // Public function members
@@ -194,14 +192,11 @@ void GIMR::reset() {
 	a_sorted.clear();
 	s_intervals.clear();
 	sa.clear();
-	dp_ops.clearall(dp_sa.m_root);
 	ta.clear();
-	dp_ops.clearall(dp_ta.m_root);
 	tms.clear();
-	dp_ops.clearall(dp_tms.m_root);
 	smt.clear();
-	dp_ops.clearall(dp_smt.m_root);
 	status.clear();
+    clear_dps_();
 }
 
 // Private function members
@@ -307,6 +302,9 @@ int GIMR::initialization_() {
 }
 
 int GIMR::initialization_dp_() {
+    // Clear existing ones.
+    clear_dps_();
+
 	// Initialize the s_interval to be [1,n]
 	SInterval g0_s_interval;
 	g0_s_interval.left_node = 1;
@@ -323,16 +321,16 @@ int GIMR::initialization_dp_() {
 		sa[i] = sa[i - 1] - w[i][0];
 	}
 
-	dp_sa.init_dynamic_path(sa);
-	dp_ta.init_dynamic_path(ta);
+    dp_sa = new dp_array(sa);
+    dp_ta = new dp_array(ta);
 
 	for (int i = 1; i <= n; ++i) {
 		tms[i] = ta[i] - sa[i] + d_ii1[i];
 		smt[i] = sa[i] - ta[i] + d_i1i[i];
 	}
 
-	dp_tms.init_dynamic_path(tms);
-	dp_smt.init_dynamic_path(smt);
+    dp_tms = new dp_array(tms);
+    dp_smt = new dp_array(smt);
 
 	// Initialize the status array
 	status.resize(n + 1, false);
@@ -441,20 +439,20 @@ int GIMR::update_arrays_(int i_k, double w_ik_jk_1, double w_ik_jk) {
 
 int GIMR::update_arrays_dp_(int i_k, double w_ik_jk_1, double w_ik_jk) {
 	if ((w_ik_jk_1 <= 0) && (w_ik_jk <= 0)) {
-		dp_sa.update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
-		dp_tms.update_constant(i_k, w_ik_jk - w_ik_jk_1);
-		dp_smt.update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
+		dp_sa->update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
+		dp_tms->update_constant(i_k, w_ik_jk - w_ik_jk_1);
+		dp_smt->update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
 	}
 	else if ((w_ik_jk_1 <= 0) && (w_ik_jk >= 0)) {
-		dp_sa.update_constant(i_k, w_ik_jk_1);
-		dp_ta.update_constant(i_k, w_ik_jk);
-		dp_tms.update_constant(i_k, w_ik_jk - w_ik_jk_1);
-		dp_smt.update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
+		dp_sa->update_constant(i_k, w_ik_jk_1);
+		dp_ta->update_constant(i_k, w_ik_jk);
+		dp_tms->update_constant(i_k, w_ik_jk - w_ik_jk_1);
+		dp_smt->update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
 	}
 	else if ((w_ik_jk_1 >= 0) && (w_ik_jk >= 0)) {
-		dp_ta.update_constant(i_k, w_ik_jk - w_ik_jk_1);
-		dp_tms.update_constant(i_k, w_ik_jk - w_ik_jk_1);
-		dp_smt.update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
+		dp_ta->update_constant(i_k, w_ik_jk - w_ik_jk_1);
+		dp_tms->update_constant(i_k, w_ik_jk - w_ik_jk_1);
+		dp_smt->update_constant(i_k, -(w_ik_jk - w_ik_jk_1));
 	}
 	return 0;
 }
@@ -522,36 +520,21 @@ int GIMR::find_status_change_interval_(int i_kl, int i_k, int i_kr, int& i_k1, i
 
 int GIMR::find_status_change_interval_dp_(int i_kl, int i_k, int i_kr, int& i_k1, int& i_k2) {
 	// Precompute some terms
-	double sa_i_k = dp_ops.pcost_after(dp_sa.m_external_nodes[i_k]);
-	double sa_i_kl_1 = dp_ops.pcost_after(dp_sa.m_external_nodes[i_kl - 1]);
-	double sa_i_kr = dp_ops.pcost_after(dp_sa.m_external_nodes[i_kr]);
-	double ta_i_kl_1 = dp_ops.pcost_after(dp_ta.m_external_nodes[i_kl - 1]);
-	double ta_i_kr = dp_ops.pcost_after(dp_ta.m_external_nodes[i_kr]);
+    double sa_i_k = dp_sa->edge_cost(i_k);
+    double sa_i_kl_1 = dp_sa->edge_cost(i_kl - 1);
+    double sa_i_kr = dp_sa->edge_cost(i_kr);
+    double ta_i_kl_1 = dp_ta->edge_cost(i_kl - 1);
+    double ta_i_kr = dp_ta->edge_cost(i_kr);
 	// Find the optimal solution when the status change interval is not empty
 	int hat_i_k1 = i_kl;
 	double f1_hat =  sa_i_k - sa_i_kl_1;
 	if (i_kl + 1 <= i_k) {
 		// Find tilde{i_{k1}}
 		int tilde_i_k1;
-		TreeNode *p1, *p2;
-		double x;
-		dp_ops.split_before(dp_tms.m_external_nodes[i_kl], p1, p2, x);
-		TreeNode *q1, *q2;
-		double y;
-		dp_ops.split_after(dp_tms.m_external_nodes[i_k], q1, q2, y);
-		tilde_i_k1 = dp_ops.pmincost_after(q1)->node_index + 1;
-		if (q2 != nullptr)
-			dp_tms.m_root = dp_ops.concatenate(q1, q2, y);
-		else
-			dp_tms.m_root = q1;
-
-		if (p1 != nullptr)
-			dp_tms.m_root = dp_ops.concatenate(p1, dp_tms.m_root, x);
-
-		//dp_tms.print_height();
+        double cost = dp_tms->min_cost_last(i_kl, i_k, tilde_i_k1);
 
 		// Find hat{i_{k1}}
-		double f1_tilde_i_k1 = dp_ops.pcost_after(dp_tms.m_external_nodes[tilde_i_k1 - 1]) - ta_i_kl_1 + sa_i_k + d_i1i[i_kl - 1];
+		double f1_tilde_i_k1 = cost - ta_i_kl_1 + sa_i_k + d_i1i[i_kl - 1];
 
 		if (f1_tilde_i_k1 <= f1_hat) {
 			hat_i_k1 = tilde_i_k1;
@@ -564,25 +547,10 @@ int GIMR::find_status_change_interval_dp_(int i_kl, int i_k, int i_kr, int& i_k1
 	if (i_k <= i_kr - 1) {
 		// Find tilde{i_{k2}}
 		int tilde_i_k2;
-		TreeNode *p1, *p2;
-		double x;
-		dp_ops.split_before(dp_smt.m_external_nodes[i_k], p1, p2, x);
-		TreeNode *q1, *q2;
-		double y;
-		dp_ops.split_after(dp_smt.m_external_nodes[i_kr], q1, q2, y);
-		tilde_i_k2 = dp_ops.pmincost_before(q1)->node_index - 1;
-		if (q2 != nullptr)
-			dp_smt.m_root = dp_ops.concatenate(q1, q2, y);
-		else
-			dp_smt.m_root = q1;
-
-		if (p1 != nullptr)
-			dp_smt.m_root = dp_ops.concatenate(p1, dp_smt.m_root, x);
-
-		//dp_smt.print_height();
+        double cost = dp_smt->min_cost_first(i_k, i_kr, tilde_i_k2);
 
 		// Find hat{i_{k2}}
-		double f2_tilde_i_k2 = dp_ops.pcost_after(dp_smt.m_external_nodes[tilde_i_k2]) - sa_i_k + ta_i_kr + d_ii1[i_kr];
+		double f2_tilde_i_k2 = cost - sa_i_k + ta_i_kr + d_ii1[i_kr];
 
 		if (f2_tilde_i_k2 <= f2_hat) {
 			hat_i_k2 = tilde_i_k2;
@@ -734,4 +702,26 @@ int GIMR::adjust_function_(const vector<double>& orig_w, const vector<double>& o
 	w.push_back(orig_w[orig_w.size() - 1]);
 
 	return 0;
+}
+
+void GIMR::clear_dps_() {
+    if (dp_sa) {
+        delete dp_sa;
+        dp_sa = nullptr;
+    }
+
+    if (dp_ta) {
+        delete dp_ta;
+        dp_ta = nullptr;
+    }
+
+    if (dp_tms) {
+        delete dp_tms;
+        dp_tms = nullptr;
+    }
+
+    if (dp_smt) {
+        delete dp_smt;
+        dp_smt = nullptr;
+    }
 }

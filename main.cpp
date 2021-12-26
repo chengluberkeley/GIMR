@@ -29,9 +29,8 @@
 const int CONST_Q = 10000;
 const int MODULA = 100;
 const int MAX_INT = 5;
-const bool IS_INTEGER = false;
+const bool IS_INTEGER = true;
 const bool IS_BP_INTEGER = false;
-const string FILENAME = "/tmp/result_10000.txt";
 
 
 /*
@@ -213,9 +212,6 @@ int main() {
 
 	// Initialize the timers
 	clock_t t1 = 0, t2 = 0;
-	// Initialize file
-	ofstream myfile;
-	myfile.open(FILENAME, ios::out | ios::app);
 	srand(time(NULL));
 	while (bar_q < CONST_Q) {
 		n = CONST_Q / bar_q;
@@ -243,6 +239,7 @@ int main() {
 			t2 = clock();
 			our_diff_dp[i] = ((float)t2 - (float)t1) / CLOCKS_PER_SEC;
 			cout << "The total running time of our algorithm (dynamic path) is " << our_diff_dp[i] << "s" << endl;
+            cout << "The objective is " << solver_dp.objective() << endl;
 			cout << endl << endl;
 
 			// Method 2: Our algorithm without dynamic path implementation	
@@ -262,6 +259,7 @@ int main() {
 				cout << "Early stops!" << endl;
 			}
 			cout << "The total running time of our algorithm (NO dynamic path) is " << our_diff[i] << "s" << endl;
+            cout << "The objective is " << solver.objective() << endl;
 			cout << endl << endl;
 		}
 
@@ -279,17 +277,15 @@ int main() {
 		cout << endl << endl;
 
 		// Output one result to file
-		myfile << "(n, bar_q) = (" << n << ", " << bar_q << ")" << endl;
-		myfile << "The final aggregate results are as follows: " << endl;
-		myfile << "Our algorithm (dynamic path): mean = " << our_mean_dp << "s, variance = " << our_variance_dp << "s" << endl;
-		myfile << "Our algorithm (NO dynamic path): mean = " << our_mean << "s, variance = " << our_variance << "s" << endl;
-		myfile << "The number of early stops for NO dynamic path is " << num_early_stop << endl;
-		myfile << endl << endl;
+		cout << "(n, bar_q) = (" << n << ", " << bar_q << ")" << endl;
+		cout << "The final aggregate results are as follows: " << endl;
+		cout << "Our algorithm (dynamic path): mean = " << our_mean_dp << "s, variance = " << our_variance_dp << "s" << endl;
+		cout << "Our algorithm (NO dynamic path): mean = " << our_mean << "s, variance = " << our_variance << "s" << endl;
+		cout << "The number of early stops for NO dynamic path is " << num_early_stop << endl;
+		cout << endl << endl;
 
 		bar_q = bar_q * 10;
 	}
-
-	myfile.close();
 
 	return 0;
 }
